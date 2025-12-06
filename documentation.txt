@@ -1,0 +1,210 @@
+Xeno Shopify Data Ingestion & Insights Platform
+
+1. Assumptions Made
+
+While designing the multi-tenant Shopify ingestion platform, the following assumptions were made to simplify scope while staying accurate to real-world systems:
+
+1. Shopify store owners will give full API access
+
+The app uses read access to:
+
+Customers
+
+Orders
+
+Products
+
+OAuth assumes merchants approve these scopes.
+
+2. Each user may manage multiple stores
+
+The schema supports multiple tenant entries per user_id.
+
+3. Database size remains manageable
+
+A MySQL instance is sufficient. Advanced sharding or warehousing (Snowflake/Redshift) is not needed at this scale.
+
+4. Analytics are calculated on-the-fly
+
+For simplicity, analytics queries (e.g., revenue, order count) run dynamically instead of using pre-computed tables.
+
+
+
+
+2. High-Level Architecture Diagram
+                    ┌───────────────────────────────┐
+                    │         React Frontend         │
+                    │     (Vercel Deployment)        │
+                    └───────────────┬───────────────┘
+                                    │ HTTPS
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │      Node.js Backend API       │
+                    │       (Railway Deployment)     │
+                    ├─────────────────┬──────────────┤
+                    │ Ingestion       │ Auth / OAuth │
+                    │ Analytics       │ Webhooks     │
+                    └───────┬─────────┴──────────────┘
+                            │ Sequelize ORM
+                            ▼
+                    ┌───────────────────────────────┐
+                    │         MySQL Database         │
+                    │       (Railway Managed DB)     │
+                    └───────────────────────────────┘
+                            │
+                            ▼
+                    ┌───────────────────────────────┐
+                    │       Shopify Admin API        │
+                    │ OAuth Tokens • Products • Orders│
+                    │       Customers • Webhooks     │
+                    └───────────────────────────────┘
+
+
+3.3. APIs and Data Models Used
+
+Below is a clear summary of all important APIs and the data models behind them.
+
+3.1 Authentication APIs
+Method	Endpoint	Description
+POST	/api/auth/register	Create new user
+POST	/api/auth/login	JWT-based login
+3.2 Tenant (Shopify Store) APIs
+Method	Endpoint	Description
+GET	/api/tenants	List all connected stores
+POST	/api/shopify/auth	Begin OAuth flow
+GET	/api/shopify/callback	Finish OAuth & save token
+POST	/api/tenants/:id/sync	Manual data sync
+3.3 Ingestion APIs (Internal)
+
+Used by cron & sync service:
+
+Fetch products from Shopify
+
+Fetch orders from Shopify
+
+Fetch customers from Shopify
+
+Data stored in MySQL.
+
+3.4 Analytics APIs
+Method	Endpoint	Description
+GET	/api/analytics/overview?tenant_id=	Returns total customers, orders, revenue
+GET	/api/analytics/revenue?tenant_id=	Returns revenue per day
+GET	/api/analytics/orders-by-date?tenant_id=	Order count per day
+GET	/api/analytics/top-customers?tenant_id=&limit=5	Top customers by spend
+
+3.5 Data Models
+
+Users
+id (PK)
+name
+email
+password (hashed)
+
+Tenants
+id (PK)
+user_id (FK)
+shop_domain
+store_name
+access_token
+is_active
+last_sync_at
+
+Products
+id (PK)
+tenant_id (FK)
+title
+price
+inventory
+shopify_product_id
+created_at
+
+Orders
+id (PK)
+tenant_id (FK)
+shopify_order_id
+total_price
+created_at
+customer_id
+
+Customers
+id (PK)
+tenant_id (FK)
+name
+email
+total_spent
+created_at
+
+4. Next Steps to Productionize the System
+
+The submission fulfills all assignment requirements, but here is how the system would be taken to full production readiness:
+
+1. Add Webhook HMAC Verification
+
+Shopify sends X-Shopify-Hmac-Sha256 header.
+This must be verified using:
+
+crypto.createHmac('sha256', SHOPIFY_WEBHOOK_SECRET)
+
+
+This prevents spoofed webhook requests.
+
+2. Real-Time Sync Using Webhooks
+
+Instead of 6-hour cron sync, use:
+
+orders/create
+
+orders/updated
+
+customers/update
+
+products/update
+
+This gives near-instantaenous updates.
+
+3. Add Background Job Queue
+
+Move ingestion into workers using:
+
+BullMQ
+
+Redis
+
+Worker threads
+
+The API becomes more scalable.
+
+4. Deploy on Multi-Region Cloud
+
+Move from Railway → AWS (ECS + RDS) for:
+
+High availability
+
+Zero-downtime scaling
+
+Lower latency
+
+5. Error Monitoring
+
+Integrate:
+
+Sentry
+
+Datadog
+
+Logs + metrics dashboard
+
+To track ingestion errors and webhook failures.
+
+6. Add Role-Based Access Control
+
+Allow:
+
+Admin
+
+Analyst
+
+Store Manager
+
+Different access levels.
