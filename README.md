@@ -1,70 +1,186 @@
-# Getting Started with Create React App
+Xeno – Shopify Data Ingestion & Insights Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack multi-tenant system for onboarding Shopify stores, ingesting data (customers, orders, products), and generating insights.
 
-## Available Scripts
+1. Setup Instructions
 
-In the project directory, you can run:
 
-### `npm start`
+git clone https://github.com/ankushaggarwal3597/xeno-backend
+git clone https://github.com/ankushaggarwal3597/xeno-frontend
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Backend Setup (Node + Express)
 
-### `npm test`
+Install dependencies:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+cd xeno-backend
+npm install
 
-### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Create .env file:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+PORT=5000
+NODE_ENV=development
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Database
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=xeno_db
+DB_USER=root
+DB_PASSWORD=yourpassword
 
-### `npm run eject`
+# JWT
+JWT_SECRET=your-secret
+JWT_EXPIRE=7d
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Shopify
+SHOPIFY_API_KEY=xxxx
+SHOPIFY_API_SECRET=xxxx
+SHOPIFY_SCOPES=read_products,read_customers,read_orders
+SHOPIFY_REDIRECT_URL=http://localhost:5000/api/shopify/callback // for local server
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# URLs// for local server
+FRONTEND_URL=http://localhost:3000
+BACKEND_URL=http://localhost:5000  
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+npm start
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Frontend Setup React
 
-## Learn More
+cd xeno-frontend
+npm install
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Create .env:
 
-### Code Splitting
+REACT_APP_API_URL=http://localhost:5000/api // for local server
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+npm start
 
-### Analyzing the Bundle Size
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+2. High-Level Architecture Diagram
 
-### Making a Progressive Web App
+                    ┌───────────────────────────────┐
+                    │         React Frontend         │
+                    │        (Vercel Hosted)         │
+                    └───────────────┬───────────────┘
+                                    │ HTTPS (Axios)
+                                    ▼
+                    ┌───────────────────────────────┐
+                    │      Node.js Backend API       │
+                    │      (Railway Deployment)      │
+                    ├───────────────┬───────────────┤
+                    │ Auth & OAuth  │  Analytics     │
+                    │ Ingestion     │  Webhooks      │
+                    └───────────────┴───────────────┘
+                           │ Sequelize ORM
+                           ▼
+                    ┌───────────────────────────────┐
+                    │         MySQL Database         │
+                    │       (Railway Managed DB)     │
+                    └───────────────────────────────┘
+                           │
+                           ▼
+                    ┌───────────────────────────────┐
+                    │       Shopify Admin API        │
+                    │  OAuth • Products • Orders     │
+                    │  Customers • Webhooks          │
+                    └───────────────────────────────┘
+3. API Endpoints
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Authentication
+Method	Endpoint	Description
+POST	/api/auth/register	Register user
+POST	/api/auth/login	Login & get JWT
 
-### Advanced Configuration
+Tenant & Shopify OAuth
+Method	Endpoint	Description
+GET	/api/tenants	Get user’s Shopify stores
+GET	/api/shopify/auth	Start Shopify OAuth
+GET	/api/shopify/callback	Complete OAuth & store token
+POST	/api/tenants/:id/sync	Manual sync
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Analytics APIs
+Method	Endpoint	Description
+GET	/api/analytics/overview?tenant_id=	Summary metrics
+GET	/api/analytics/revenue?tenant_id=	Revenue over time
+GET	/api/analytics/orders-by-date?tenant_id=	Orders timeline
+GET	/api/analytics/top-customers?tenant_id=&limit=	Top customers
 
-### Deployment
+Customers
+Method	Endpoint
+GET	/api/customers?tenant_id=&page=&limit=
+GET	/api/customers/:id
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Products
+Method	Endpoint
+GET	/api/products?tenant_id=&page=&limit=
+GET	/api/products/:id
 
-### `npm run build` fails to minify
+Orders
+Method	Endpoint
+GET	/api/orders?tenant_id=&page=&limit=
+GET	/api/orders/:id
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+4. Database Schema
+Users
+id (PK)
+name
+email
+password_hash
+
+Tenants
+id (PK)
+user_id (FK)
+shop_domain
+store_name
+access_token
+last_sync_at
+is_active
+
+Customers
+id (PK)
+tenant_id (FK)
+name
+email
+total_spent
+created_at
+
+Orders
+id (PK)
+tenant_id (FK)
+shopify_order_id
+total_price
+created_at
+customer_id
+
+Products
+id (PK)
+tenant_id (FK)
+title
+price
+inventory
+created_at
+
+Known Limitations / Assumptions
+Limitations
+
+Sync runs every 6 hours, not real-time.
+
+Analytics calculated in real-time → slower for huge datasets.
+
+Webhook HMAC validation not added (can be added easily).
+
+No retry mechanism for failed ingestion pages.
+
+Assumptions
+
+Shopify merchants approve required app scopes.
+
+MySQL dataset fits in a single DB instance.
+
+Cron schedule (6-hour ingestion) is acceptable for this assignment.
+
+One Shopify store corresponds to one tenant.
+
